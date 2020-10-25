@@ -107,23 +107,34 @@ describe('K8su', function () {
 
             await _sleep(1000);
 
+            // should be created
             let rb = await rbacApi.readNamespacedRoleBinding('simple-role-assignment-lease', namespace);
             expect(rb.body.kind).to.be.equal("RoleBinding");
 
+            // should be gone again
             await _sleep(2000);
             try {
                 await rbacApi.readNamespacedRoleBinding('simple-role-assignment-lease', namespace);
                 expect(false).to.be.true;
             } catch(err) {
                 // do nothing
-                expect(true).to.be.true;
+                expect(err.body).to.be.not.undefined;
+            }
+
+            // so has to be the lease
+            try {
+                await customApi.getNamespacedCustomObject(group, version, namespace, pluralLeases, 'simple-role-assignment-lease');
+                expect(false).to.be.true;
+            } catch(err) {
+                // do nothing
+                expect(err.body).to.be.not.undefined;
             }
         }).timeout(10000);
 
         it('should delete the binding after deletion of lease', async function() {
             await createTemporaryRole('r2', {
                 role: 'k8su-role',
-                leaseTimeSeconds: 10,
+                leaseTimeSeconds: 999,
                 assignToServiceAccount: 'k8su-svc-account'
             });
 
@@ -144,7 +155,35 @@ describe('K8su', function () {
                 expect(false).to.be.true;
             } catch(err) {
                 // do nothing
-                expect(true).to.be.true;
+                expect(err.body).to.be.not.undefined;
+            }
+        }).timeout(10000);
+
+        it('should delete the binding after deletion of temporary role', async function() {
+            await createTemporaryRole('r3', {
+                role: 'k8su-role',
+                leaseTimeSeconds: 999,
+                assignToServiceAccount: 'k8su-svc-account'
+            });
+
+            await createTemporaryRoleLease('l3', { temporaryRole: 'r3' });
+
+            await _sleep(1000);
+
+            let rb = await rbacApi.readNamespacedRoleBinding('r3-lease', namespace);
+            expect(rb.body.kind).to.be.equal("RoleBinding");
+
+            // delete the lease
+            await customApi.deleteNamespacedCustomObject(group, version, namespace, pluralRoles, 'r3');
+
+            // should be gone
+            await _sleep(2000);
+            try {
+                await rbacApi.readNamespacedRoleBinding('r3-lease', namespace);
+                expect(false).to.be.true;
+            } catch(err) {
+                // do nothing
+                expect(err.body).to.be.not.undefined;
             }
         }).timeout(10000);
 
