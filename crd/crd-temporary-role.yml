@@ -44,7 +44,7 @@ spec:
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
-  name: temporaryroleleases.roles.k8su.io
+  name: temporaryrolerequests.roles.k8su.io
 spec:
   group: roles.k8su.io
   versions:
@@ -69,8 +69,8 @@ spec:
         jsonPath: .spec.temporaryRole
   scope: Namespaced
   names:
-    plural: temporaryroleleases
-    singular: temporaryrolelease
-    kind: TemporaryRoleLease
+    plural: temporaryrolerequests
+    singular: temporaryrolerequest
+    kind: TemporaryRoleRequest
     shortNames:
-    - trl
+    - trr

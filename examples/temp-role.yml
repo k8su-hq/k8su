@@ -36,7 +36,7 @@ spec:
   assignToServiceAccount: "k8su-svc-account"
 ---
 apiVersion: roles.k8su.io/v1alpha1
-kind: TemporaryRoleLease
+kind: TemporaryRoleRequest
 metadata:
   name: lease-a-bit
   namespace: k8su

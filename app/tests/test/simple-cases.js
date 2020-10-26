@@ -67,7 +67,7 @@ describe('K8su', function () {
 
         const group = "roles.k8su.io";
         const version = "v1alpha1";
-        const pluralLeases = "temporaryroleleases";
+        const pluralRequests = "temporaryrolerequests";
         const pluralRoles = "temporaryroles";
         
         const createTemporaryRole = (name, spec) => {
@@ -82,10 +82,10 @@ describe('K8su', function () {
             });
         };
 
-        const createTemporaryRoleLease = (name, spec) => {
-            return customApi.createNamespacedCustomObject(group, version, namespace, pluralLeases, {
+        const createTemporaryRoleRequest = (name, spec) => {
+            return customApi.createNamespacedCustomObject(group, version, namespace, pluralRequests, {
                 apiVersion: 'roles.k8su.io/v1alpha1',
-                kind: 'TemporaryRoleLease',
+                kind: 'TemporaryRoleRequest',
                 metadata: {
                     name: name,
                     namespace: namespace
@@ -101,29 +101,29 @@ describe('K8su', function () {
                 assignToServiceAccount: 'k8su-svc-account'
             });
 
-            await createTemporaryRoleLease('simple-role-assignment-lease', {
+            await createTemporaryRoleRequest('simple-role-assignment-request', {
                 temporaryRole: 'simple-role-assignment'
             });
 
             await _sleep(1000);
 
             // should be created
-            let rb = await rbacApi.readNamespacedRoleBinding('simple-role-assignment-lease', namespace);
+            let rb = await rbacApi.readNamespacedRoleBinding('simple-role-assignment-request', namespace);
             expect(rb.body.kind).to.be.equal("RoleBinding");
 
             // should be gone again
             await _sleep(2000);
             try {
-                await rbacApi.readNamespacedRoleBinding('simple-role-assignment-lease', namespace);
+                await rbacApi.readNamespacedRoleBinding('simple-role-assignment-request', namespace);
                 expect(false).to.be.true;
             } catch(err) {
                 // do nothing
                 expect(err.body).to.be.not.undefined;
             }
 
-            // so has to be the lease
+            // so has to be the request
             try {
-                await customApi.getNamespacedCustomObject(group, version, namespace, pluralLeases, 'simple-role-assignment-lease');
+                await customApi.getNamespacedCustomObject(group, version, namespace, pluralRequests, 'simple-role-assignment-request');
                 expect(false).to.be.true;
             } catch(err) {
                 // do nothing
@@ -131,27 +131,27 @@ describe('K8su', function () {
             }
         }).timeout(10000);
 
-        it('should delete the binding after deletion of lease', async function() {
+        it('should delete the binding after deletion of request', async function() {
             await createTemporaryRole('r2', {
                 role: 'k8su-role',
                 leaseTimeSeconds: 999,
                 assignToServiceAccount: 'k8su-svc-account'
             });
 
-            await createTemporaryRoleLease('l2', { temporaryRole: 'r2' });
+            await createTemporaryRoleRequest('l2', { temporaryRole: 'r2' });
 
             await _sleep(1000);
 
-            let rb = await rbacApi.readNamespacedRoleBinding('r2-lease', namespace);
+            let rb = await rbacApi.readNamespacedRoleBinding('r2-request', namespace);
             expect(rb.body.kind).to.be.equal("RoleBinding");
 
-            // delete the lease
-            await customApi.deleteNamespacedCustomObject(group, version, namespace, pluralLeases, 'l2');
+            // delete the request
+            await customApi.deleteNamespacedCustomObject(group, version, namespace, pluralRequests, 'l2');
 
             // should be gone
             await _sleep(2000);
             try {
-                await rbacApi.readNamespacedRoleBinding('r2-lease', namespace);
+                await rbacApi.readNamespacedRoleBinding('r2-request', namespace);
                 expect(false).to.be.true;
             } catch(err) {
                 // do nothing
@@ -166,20 +166,20 @@ describe('K8su', function () {
                 assignToServiceAccount: 'k8su-svc-account'
             });
 
-            await createTemporaryRoleLease('l3', { temporaryRole: 'r3' });
+            await createTemporaryRoleRequest('l3', { temporaryRole: 'r3' });
 
             await _sleep(1000);
 
-            let rb = await rbacApi.readNamespacedRoleBinding('r3-lease', namespace);
+            let rb = await rbacApi.readNamespacedRoleBinding('r3-request', namespace);
             expect(rb.body.kind).to.be.equal("RoleBinding");
 
-            // delete the lease
+            // delete the request
             await customApi.deleteNamespacedCustomObject(group, version, namespace, pluralRoles, 'r3');
 
             // should be gone
             await _sleep(2000);
             try {
-                await rbacApi.readNamespacedRoleBinding('r3-lease', namespace);
+                await rbacApi.readNamespacedRoleBinding('r3-request', namespace);
                 expect(false).to.be.true;
             } catch(err) {
                 // do nothing
@@ -187,5 +187,42 @@ describe('K8su', function () {
             }
         }).timeout(10000);
 
+        it('should create a temporary role binding with correct fields', async function() {
+            await createTemporaryRole('simple-role-assignment', {
+                role: 'k8su-role',
+                leaseTimeSeconds: 2,
+                assignToServiceAccount: 'k8su-svc-account'
+            });
+    
+            const request = await createTemporaryRoleRequest('sra-request', {
+                temporaryRole: 'simple-role-assignment'
+            });
+            const requestBody = request.body;
+    
+            await _sleep(1000);
+    
+            // should be created
+            let rb = await rbacApi.readNamespacedRoleBinding('simple-role-assignment-request', namespace);
+            let body = rb.body;
+            
+            expect(body.kind).to.be.equal("RoleBinding");
+            expect(body.apiVersion).to.be.equal("rbac.authorization.k8s.io/v1");
+
+            expect(body.roleRef.apiGroup).to.be.equal('rbac.authorization.k8s.io');
+            expect(body.roleRef.kind).to.be.equal('Role');
+            expect(body.roleRef.name).to.be.equal('k8su-role');
+
+            expect(body.subjects[0].kind).to.be.equal('ServiceAccount');
+            expect(body.subjects[0].name).to.be.equal('k8su-svc-account');
+            expect(body.subjects[0].namespace).to.be.equal(namespace);
+
+            const owner = body.metadata.ownerReferences[0];
+            expect(owner.apiVersion).to.be.equal('roles.k8su.io/v1alpha1');
+            expect(owner.kind).to.be.equal('TemporaryRoleRequest');
+            expect(owner.name).to.be.equal('sra-request');
+            expect(owner.uid).to.be.equal(requestBody.metadata.uid);
+            expect(owner.controller).to.be.equal(true);
+            expect(owner.blockOwnerDeletion).to.be.equal(true);
+        }).timeout(10000);
     });
 });

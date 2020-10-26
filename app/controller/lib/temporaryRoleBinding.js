@@ -2,10 +2,10 @@ const k8s = require('@kubernetes/client-node');
 const EventType = require('./eventType');
 
 module.exports = class TemporaryRoleBinding {
-    constructor(kubeConfig, temporaryRole, temporaryRoleLease) {
+    constructor(kubeConfig, temporaryRole, temporaryRoleRequest) {
         this.kubeConfig = kubeConfig;
         this.role = temporaryRole;
-        this.lease = temporaryRoleLease;
+        this.request = temporaryRoleRequest;
         this.deleteAfter = undefined;
         
         this.bindingApi = kubeConfig.makeApiClient(k8s.RbacAuthorizationV1Api);
@@ -17,13 +17,14 @@ module.exports = class TemporaryRoleBinding {
         }
     }
 
-    create(temporaryRoleWatcher, temporaryRoleLeaseWatcher) {
-        this.roleWatcher = temporaryRoleWatcher;
-        this.leaseWatcher = temporaryRoleLeaseWatcher;
+    create(roleWatcher, requestWatcher) {
+        this.roleWatcher = roleWatcher;
+        this.requestWatcher = requestWatcher;
 
         // TODO: check if already there - if there is update?
-        const ns = this.lease.metadata.namespace;
+        const ns = this.request.metadata.namespace;
         const body = this.createRoleFor(ns);
+
         this.bindingApi.createNamespacedRoleBinding(ns, body)
             .then(res => console.log("created role binding: " + body.metadata.name))
             .catch(err => this.logError(err));
@@ -42,14 +43,14 @@ module.exports = class TemporaryRoleBinding {
             }
         });
 
-        this.leaseWatcher.on(this.lease.metadata.selfLink, (type, item) => {
+        this.requestWatcher.on(this.request.metadata.selfLink, (type, item) => {
             if ( type == EventType.DELETED ) {
-                console.log("delete binding because of deletion of temporary role lease");
+                console.log("delete binding because of deletion of temporary role request");
                 this.deleteBinding();
             }
         });
         /*
-            if role is update or lease is updated -> update role binding?
+            if role is update or request is updated -> update role binding?
         */
     }
 
@@ -57,18 +58,18 @@ module.exports = class TemporaryRoleBinding {
         clearTimeout(this.deleteAfter);
 
         // binding
-        this.bindingApi.deleteNamespacedRoleBinding(this.getBindingName(), this.lease.metadata.namespace)
+        this.bindingApi.deleteNamespacedRoleBinding(this.getBindingName(), this.request.metadata.namespace)
             .then(res => console.log("deleted binding: " + this.getBindingName()))
             .catch(err => this.logError(err));
         
-        // lease
-        this.leaseWatcher.deleteResource(this.lease.metadata.namespace, this.lease.metadata.name)
-            .then(res => console.log("deleted lease: " + this.lease.metadata.selfLink))
+        // request
+        this.requestWatcher.deleteResource(this.request.metadata.namespace, this.request.metadata.name)
+            .then(res => console.log("deleted request: " + this.request.metadata.selfLink))
             .catch(err => this.logError(err));
     }
 
     getBindingName() {
-        return this.role.metadata.name + '-lease';
+        return this.role.metadata.name + '-request';
     }
 
     createRoleFor(namespace) {
@@ -87,6 +88,19 @@ module.exports = class TemporaryRoleBinding {
         body.roleRef = {
             kind: 'Role', name: this.role.spec.role, apiGroup: 'rbac.authorization.k8s.io'
         }
+
+        // owned by the request
+        body.metadata.ownerReferences = [
+            {
+                apiVersion: this.request.apiVersion,
+                controller: true,
+                blockOwnerDeletion: true,
+                kind: this.request.kind,
+                name: this.request.metadata.name,
+                uid: this.request.metadata.uid
+            }
+        ];
+
         return body;
     }
 }

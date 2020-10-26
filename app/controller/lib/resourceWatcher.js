@@ -33,8 +33,6 @@ module.exports = class ResourceWatcher extends EventEmitter {
         return null;
     }
 
-    // selfLink: '/apis/roles.k8su.io/v1alpha1/namespaces/k8su/temporaryroleleases/lease-a-bit',
-
     onDelete(cb) { this.on(EventType.DELETED, cb); }
     onInit(cb) { this.on(EventType.INIT, cb); }
     onCreate(cb) { this.on(EventType.CREATED, cb); }
