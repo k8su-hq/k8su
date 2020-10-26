@@ -23,7 +23,12 @@ logger.add(new winston.transports.Console({
 
 // setup kubernetes
 const kc = new k8s.KubeConfig();
-kc.loadFromDefault();
+
+if ( process.env.KUBERNETES_SERVICE_HOST ) {
+    kc.loadFromCluster();
+} else {
+    kc.loadFromDefault();
+}
 
 const roleWatcher = new TemporaryRoleWatcher(kc, logger);
 const requestWatcher = new TemporaryRoleRequestWatcher(kc, logger);
