@@ -1,0 +1,25 @@
+version: 2
+updates:
+  # kubernetes controller
+  - package-ecosystem: "npm"
+    directory: "/app/controller"
+    schedule:
+      interval: "daily"
+  - package-ecosystem: "npm"
+    directory: "/app/unit"
+    schedule:
+      interval: "daily"
+  - package-ecosystem: "docker"
+    directory: "/app/controller"
+    schedule:
+      interval: "weekly"
+
+  # cluster utility
+  - package-ecosystem: "npm"
+    directory: "/integration/cluster-role-test"
+    schedule:
+      interval: "daily"
+  - package-ecosystem: "docker"
+    directory: "/integration/cluster-role-test"
+    schedule:
+      interval: "weekly"
