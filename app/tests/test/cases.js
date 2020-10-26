@@ -167,7 +167,9 @@ describe('K8su', function () {
             await createTemporaryRole('r3', {
                 role: 'k8su-role',
                 leaseTimeSeconds: 999,
-                assignToServiceAccount: 'k8su-svc-account'
+                subject: {
+                    serviceAccount: 'k8su-svc-account'
+                }
             });
 
             await createTemporaryRoleRequest('l3', { temporaryRole: 'r3' });

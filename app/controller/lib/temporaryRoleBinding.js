@@ -2,70 +2,114 @@ const k8s = require('@kubernetes/client-node');
 const EventType = require('./eventType');
 
 module.exports = class TemporaryRoleBinding {
-    constructor(kubeConfig, temporaryRole, temporaryRoleRequest) {
+    constructor(kubeConfig, logger, request) {
         this.kubeConfig = kubeConfig;
-        this.role = temporaryRole;
-        this.request = temporaryRoleRequest;
+        this.request = request;
         this.deleteAfter = undefined;
+        this.logger = logger;
         
         this.bindingApi = kubeConfig.makeApiClient(k8s.RbacAuthorizationV1Api);
-    }
-
-    logError(err) {
-        if ( err.body && err.body.message ) {
-            console.log(err.body.message);
-        }
+        this.unregister;
     }
 
     create(roleWatcher, requestWatcher) {
         this.roleWatcher = roleWatcher;
         this.requestWatcher = requestWatcher;
 
-        // TODO: check if already there - if there is update?
-        const ns = this.request.metadata.namespace;
-        const body = this.createRoleFor(ns);
+        const fetchedRole = roleWatcher.get(this.request.metadata.namespace, this.request.spec.temporaryRole);
+        if ( fetchedRole == undefined ) {
+            this.logger.error("request refers to non-existing role: " + this.request.spec.temporaryRole);
+            return;
+        } else {
+            this.role = fetchedRole;
+        }
 
-        this.bindingApi.createNamespacedRoleBinding(ns, body)
-            .then(res => console.log("created role binding: " + body.metadata.name))
-            .catch(err => this.logError(err));
+        const namespace = this.request.metadata.namespace;
+        const millisToExpiration = this.role.spec.leaseTimeSeconds*1000;
+        const createdAt = new Date(this.request.metadata.creationTimestamp);
 
-        clearTimeout(this.deleteAfter);
-        this.deleteAfter = setTimeout(() => this.deleteBinding(), this.role.spec.leaseTimeSeconds*1000);
+        const removeAt = createdAt.getTime() + millisToExpiration;
+        const now = new Date().getTime();
 
-        this.registerOnEvents();
+        if ( removeAt > now ) {
+            this.logger.info("new request to be created: " + this.request.metadata.selfLink);
+            
+            const body = this.createRoleFor(namespace);
+
+            this.bindingApi.createNamespacedRoleBinding(namespace, body)
+                        .then(res => this.logger.info("created role binding: " + body.metadata.selfLink))
+                        .catch(err => {
+                            this.logger.error("could not create role binding for " + this.request.metadata.selfLink);
+                            this.logger.error(err);
+                        });
+
+            // add timeout
+            clearTimeout(this.deleteAfter);
+            this.deleteAfter = setTimeout(() => {
+                this.logger.info("time reached to delete " + this.request.metadata.selfLink);
+                this.deleteBinding(true)
+            }, removeAt - now);
+
+            this.registerOnEvents();
+        } else {
+            this.logger.info("old request pending: " + this.request.metadata.selfLink);
+            this.deleteBinding(true);
+        }
     }
     
     registerOnEvents() {
-        this.roleWatcher.on(this.role.metadata.selfLink, (type, item) => {
+        const roleHandler = (type, item) => {
             if ( type == EventType.DELETED ) {
-                console.log("delete binding because of deletion of temporary role");
-                this.deleteBinding();
+                this.logger.info("delete binding because of deletion of temporary role");
+                this.deleteBinding(true);
             }
-        });
+        };
 
-        this.requestWatcher.on(this.request.metadata.selfLink, (type, item) => {
+        const requestHandler = (type, item) => {
             if ( type == EventType.DELETED ) {
-                console.log("delete binding because of deletion of temporary role request");
-                this.deleteBinding();
+                this.logger.info("delete binding because of deletion of temporary role request");
+                this.deleteBinding(false);
             }
-        });
-        /*
-            if role is update or request is updated -> update role binding?
-        */
+        };
+
+        this.roleWatcher.on(this.role.metadata.selfLink, roleHandler);
+        this.requestWatcher.on(this.request.metadata.selfLink, requestHandler);
+
+        this.unregister = () => {
+            this.roleWatcher.removeListener(this.role.metadata.selfLink, roleHandler);
+            this.requestWatcher.removeListener(this.request.metadata.selfLink, requestHandler);
+        };
     }
 
-    deleteBinding() {
+    deleteBinding(deleteRequest) {
         clearTimeout(this.deleteAfter);
 
-        // binding
-        this.bindingApi.deleteNamespacedRoleBinding(this.getBindingName(), this.request.metadata.namespace)
-            .then(res => console.log("deleted binding: " + this.getBindingName()))
-            .catch(err => this.logError(err));
+        if ( this.unregister ) {
+            this.unregister();
+        }
+
+        // binding is owned by request, should be auto-deleted
+        /*
+        if ( deleteBinding ) {
+            const bindingName = this.getBindingName();
+            this.bindingApi.deleteNamespacedRoleBinding(this.getBindingName(), this.request.metadata.namespace)
+                .then(res => this.logger.info("deleted binding: " + bindingName))
+                .catch(err => {
+                    this.logger.error("could not delete binding: " + bindingName);
+                    this.logger.error(err);
+                });
+        }
+        */
         
         // request
-        this.requestWatcher.deleteResource(this.request.metadata.namespace, this.request.metadata.name)
-            .then(res => console.log("deleted request: " + this.request.metadata.selfLink))
-            .catch(err => this.logError(err));
+        if ( deleteRequest ) {
+            this.requestWatcher.deleteResource(this.request.metadata.namespace, this.request.metadata.name)
+                .then(res => this.logger.info("deleted request: " + this.request.metadata.selfLink))
+                .catch(err => {
+                    this.logger.error("could not delete request: " + this.request.metadata.selfLink);
+                    this.logger.error(err);
+                });
+        }
     }
 
     getBindingName() {

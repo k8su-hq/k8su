@@ -1,17 +1,34 @@
+
+
+const winston = require('winston');
+
 const k8s = require('@kubernetes/client-node');
 const TemporaryRoleRequestWatcher = require('./lib/temporaryRoleRequestWatcher');
 const TemporaryRoleWatcher = require('./lib/temporaryRoleWatcher');
 const TemporaryRoleBinding = require('./lib/temporaryRoleBinding');
 
+// setup logger
+const logger = winston.createLogger({
+    level: 'info',
+    transports: []
+});
+
+logger.add(new winston.transports.Console({
+    format: winston.format.combine(
+        winston.format.colorize(),
+        winston.format.timestamp(),
+        winston.format.simple(),
+    )
+}));
+
+// setup kubernetes
 const kc = new k8s.KubeConfig();
 kc.loadFromDefault();
 
-const roleWatcher = new TemporaryRoleWatcher(kc);
-const requestWatcher = new TemporaryRoleRequestWatcher(kc);
+const roleWatcher = new TemporaryRoleWatcher(kc, logger);
+const requestWatcher = new TemporaryRoleRequestWatcher(kc, logger);
 
-const logEvent = (evt, item) => {
-    console.log("Event: " + evt + " for " + item.metadata.name);
-};
+const logEvent = (evt, item) => logger.debug("event " + evt + " for " + item.metadata.name);
 
 // add logging
 roleWatcher.onInit(item => logEvent('init', item));
@@ -25,21 +42,29 @@ requestWatcher.onDelete(item => logEvent('delete', item));
 requestWatcher.onUpdate(item => logEvent('update', item));
 requestWatcher.onCreate(item => logEvent('create', item));
 
-roleWatcher.start();
-requestWatcher.start();
+roleWatcher.start().then(() => {
+    logger.info("init - fetched roles");
+    requestWatcher.start().then(() => {
+        logger.info("init - fetched requests");
+    }).catch(err => {
+        logger.error("init - could not fetch requests");
+        logger.error(err);
+    })
+}).catch(err => {
+    logger.error("init - could not fetch role");
+    logger.error(err);
+});
+
+let requests = {};
 
 const addRoleBinding = item => {
     try {
-        console.log("creating role binding");
-        const temporaryRole = roleWatcher.get(item.metadata.namespace, item.spec.temporaryRole);
-        
-        // add role binding
-        // rbac.authorization.k8s.io/v1 => roles
-        
-        const binding = new TemporaryRoleBinding(kc, temporaryRole, item);
+        logger.info("created role binding for request " + item.metadata.selfLink);
+        const binding = new TemporaryRoleBinding(kc, logger, item);
         binding.create(roleWatcher, requestWatcher);
     } catch(err) {
-        console.log(err);
+        logger.error("could not create role binding for request " + item.metadata.selfLink);
+        logger.error(err);
     }
 };
 

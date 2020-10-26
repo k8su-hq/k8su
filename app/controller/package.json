@@ -9,6 +9,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@kubernetes/client-node": "^0.12.3"
+    "@kubernetes/client-node": "^0.12.3",
+    "winston": "^3.3.3"
   }
 }
