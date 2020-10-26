@@ -98,7 +98,9 @@ describe('K8su', function () {
             await createTemporaryRole('simple-role-assignment', {
                 role: 'k8su-role',
                 leaseTimeSeconds: 2,
-                assignToServiceAccount: 'k8su-svc-account'
+                subject: {
+                    serviceAccount: 'k8su-svc-account'
+                }
             });
 
             await createTemporaryRoleRequest('simple-role-assignment-request', {
@@ -135,7 +137,9 @@ describe('K8su', function () {
             await createTemporaryRole('r2', {
                 role: 'k8su-role',
                 leaseTimeSeconds: 999,
-                assignToServiceAccount: 'k8su-svc-account'
+                subject: {
+                    serviceAccount: 'k8su-svc-account'
+                }
             });
 
             await createTemporaryRoleRequest('l2', { temporaryRole: 'r2' });
@@ -188,21 +192,23 @@ describe('K8su', function () {
         }).timeout(10000);
 
         it('should create a temporary role binding with correct fields', async function() {
-            await createTemporaryRole('simple-role-assignment', {
+            await createTemporaryRole('svc-role', {
                 role: 'k8su-role',
                 leaseTimeSeconds: 2,
-                assignToServiceAccount: 'k8su-svc-account'
+                subject: {
+                    serviceAccount: 'k8su-svc-account'
+                }
             });
     
-            const request = await createTemporaryRoleRequest('sra-request', {
-                temporaryRole: 'simple-role-assignment'
+            const request = await createTemporaryRoleRequest('svc-sra-request', {
+                temporaryRole: 'svc-role'
             });
             const requestBody = request.body;
     
             await _sleep(1000);
     
             // should be created
-            let rb = await rbacApi.readNamespacedRoleBinding('simple-role-assignment-request', namespace);
+            let rb = await rbacApi.readNamespacedRoleBinding('svc-role-request', namespace);
             let body = rb.body;
             
             expect(body.kind).to.be.equal("RoleBinding");
@@ -219,10 +225,54 @@ describe('K8su', function () {
             const owner = body.metadata.ownerReferences[0];
             expect(owner.apiVersion).to.be.equal('roles.k8su.io/v1alpha1');
             expect(owner.kind).to.be.equal('TemporaryRoleRequest');
-            expect(owner.name).to.be.equal('sra-request');
+            expect(owner.name).to.be.equal('svc-sra-request');
             expect(owner.uid).to.be.equal(requestBody.metadata.uid);
             expect(owner.controller).to.be.equal(true);
             expect(owner.blockOwnerDeletion).to.be.equal(true);
+        }).timeout(10000);
+
+        it('should create a temporary role binding for users', async function() {
+            await createTemporaryRole('user-role', {
+                role: 'k8su-role',
+                leaseTimeSeconds: 2,
+                subject: {
+                    user: 'gijs'
+                }
+            });
+    
+            const request = await createTemporaryRoleRequest('user-sra-request', { temporaryRole: 'user-role' });
+            
+            await _sleep(1000);
+    
+            // should be created
+            let rb = await rbacApi.readNamespacedRoleBinding('user-role-request', namespace);
+            let body = rb.body;
+
+            expect(body.subjects[0].kind).to.be.equal('User');
+            expect(body.subjects[0].name).to.be.equal('gijs');
+            expect(body.subjects[0].apiGroup).to.be.equal('rbac.authorization.k8s.io');
+        }).timeout(10000);
+
+        it('should create a temporary role binding for groups', async function() {
+            await createTemporaryRole('group-role', {
+                role: 'k8su-role',
+                leaseTimeSeconds: 2,
+                subject: {
+                    group: 'grp1'
+                }
+            });
+    
+            const request = await createTemporaryRoleRequest('group-sra-request', { temporaryRole: 'group-role' });
+            
+            await _sleep(1000);
+    
+            // should be created
+            let rb = await rbacApi.readNamespacedRoleBinding('group-role-request', namespace);
+            let body = rb.body;
+
+            expect(body.subjects[0].kind).to.be.equal('Group');
+            expect(body.subjects[0].name).to.be.equal('grp1');
+            expect(body.subjects[0].apiGroup).to.be.equal('rbac.authorization.k8s.io');
         }).timeout(10000);
     });
 });

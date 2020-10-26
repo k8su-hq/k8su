@@ -21,18 +21,24 @@ spec:
                   type: string
                 leaseTimeSeconds:
                   type: integer
-                # name of service account to assign to
-                assignToServiceAccount:
-                  type: string
+                subject:
+                  type: object
+                  properties:
+                    serviceAccount:
+                      type: string
+                    user:
+                      type: string
+                    group:
+                      type: string
+                  oneOf:
+                  - required: ["serviceAccount"]
+                  - required: ["user"]
+                  - required: ["group"]
       additionalPrinterColumns:
       - name: Role
         type: string
         description: The k8s role to bind to
         jsonPath: .spec.role
-      - name: SvcAct
-        type: string
-        description: The k8s service account to bind to
-        jsonPath: .spec.assignToServiceAccount
   scope: Namespaced
   names:
     plural: temporaryroles

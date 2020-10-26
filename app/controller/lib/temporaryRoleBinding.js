@@ -79,11 +79,27 @@ module.exports = class TemporaryRoleBinding {
             namespace: namespace
         };
 
-        body.subjects = [{
-            kind: 'ServiceAccount',
-            name: this.role.spec.assignToServiceAccount,
-            namespace: namespace
-        }];
+        body.subjects = [];
+
+        if ( this.role.spec.subject.serviceAccount != undefined ) {
+            body.subjects.push({
+                kind: 'ServiceAccount',
+                name: this.role.spec.subject.serviceAccount,
+                namespace: namespace
+            });
+        } else if ( this.role.spec.subject.user != undefined ) {
+            body.subjects.push({
+                kind: 'User',
+                name: this.role.spec.subject.user,
+                apiGroup: 'rbac.authorization.k8s.io'
+            });
+        } else if ( this.role.spec.subject.group != undefined ) {
+            body.subjects.push({
+                kind: 'Group',
+                name: this.role.spec.subject.group,
+                apiGroup: 'rbac.authorization.k8s.io'
+            });
+        }
         
         body.roleRef = {
             kind: 'Role', name: this.role.spec.role, apiGroup: 'rbac.authorization.k8s.io'
