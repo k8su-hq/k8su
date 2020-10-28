@@ -12,9 +12,10 @@ module.exports = class TemporaryRoleBinding {
         this.unregister;
     }
 
-    create(roleWatcher, requestWatcher) {
+    create(roleWatcher, requestWatcher, approvalWatcher) {
         this.roleWatcher = roleWatcher;
         this.requestWatcher = requestWatcher;
+        this.approvalWatcher = approvalWatcher;
 
         const fetchedRole = roleWatcher.get(this.request.metadata.namespace, this.request.spec.temporaryRole);
         if ( fetchedRole == undefined ) {
@@ -23,6 +24,8 @@ module.exports = class TemporaryRoleBinding {
         } else {
             this.role = fetchedRole;
         }
+
+        // TODO: implement approval logic
 
         const namespace = this.request.metadata.namespace;
         const millisToExpiration = this.role.spec.leaseTimeSeconds*1000;
