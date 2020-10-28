@@ -21,6 +21,19 @@ module.exports = class ResourceWatcher extends EventEmitter {
         return this.customApi.deleteNamespacedCustomObject(this.group, this.version, namespace, this.plural, name)
     }
 
+    updateStatus(namespace, name, body) {
+        const patch = [
+            {
+                op: "replace",
+                path: "/status",
+                value: body
+            }
+        ];
+
+        const options = { "headers": { "Content-type": k8s.PatchUtils.PATCH_FORMAT_JSON_PATCH } };
+        return this.customApi.patchNamespacedCustomObjectStatus(this.group, this.version, namespace, this.plural, name, patch, undefined, undefined, undefined, options);
+    }
+
     get(namespace, name) {
         let part = "/apis/" + this.group;
         part += "/" + this.version;

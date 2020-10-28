@@ -1,7 +1,7 @@
 {
-  "name": "k8su-controller",
+  "name": "k8su-mutatingwebhook",
   "version": "1.0.0",
-  "description": "Main controller of k8su",
+  "description": "The Mutating Webhook part of K8su",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
@@ -9,7 +9,7 @@
   "author": "Gijs van Dulmen",
   "license": "Mozilla Public License 2.0",
   "dependencies": {
-    "@kubernetes/client-node": "^0.12.3",
+    "express": "^4.17.1",
     "winston": "^3.3.3"
   }
 }

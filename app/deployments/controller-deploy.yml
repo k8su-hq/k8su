@@ -63,8 +63,7 @@ spec:
     spec:
       serviceAccountName: k8su-controller-svc-account
       containers:
-      - env:
-        image: 192.168.1.10:5000/k8su/k8su-controller:latest
+      - image: 192.168.1.10:5000/k8su/k8su-controller:latest
         imagePullPolicy: Always
         livenessProbe:
           failureThreshold: 2

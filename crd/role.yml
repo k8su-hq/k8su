@@ -6,9 +6,7 @@ spec:
   group: roles.k8su.io
   versions:
     - name: v1alpha1
-      # Each version can be enabled/disabled by Served flag.
       served: true
-      # One and only one version must be marked as the storage version.
       storage: true
       schema:
         openAPIV3Schema:
@@ -21,6 +19,8 @@ spec:
                   type: string
                 leaseTimeSeconds:
                   type: integer
+                needsApproval:
+                  type: boolean
                 subject:
                   type: object
                   properties:
@@ -46,37 +46,3 @@ spec:
     kind: TemporaryRole
     shortNames:
     - tr
----
-apiVersion: apiextensions.k8s.io/v1
-kind: CustomResourceDefinition
-metadata:
-  name: temporaryrolerequests.roles.k8su.io
-spec:
-  group: roles.k8su.io
-  versions:
-    - name: v1alpha1
-      # Each version can be enabled/disabled by Served flag.
-      served: true
-      # One and only one version must be marked as the storage version.
-      storage: true
-      schema:
-        openAPIV3Schema:
-          type: object
-          properties:
-            spec:
-              type: object
-              properties:
-                temporaryRole:
-                  type: string
-      additionalPrinterColumns:
-      - name: TemporaryRole
-        type: string
-        description: The name of the temporary role
-        jsonPath: .spec.temporaryRole
-  scope: Namespaced
-  names:
-    plural: temporaryrolerequests
-    singular: temporaryrolerequest
-    kind: TemporaryRoleRequest
-    shortNames:
-    - trr

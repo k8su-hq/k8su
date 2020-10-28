@@ -1,0 +1,36 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: temporaryrolerequests.roles.k8su.io
+spec:
+  group: roles.k8su.io
+  versions:
+    - name: v1alpha1
+      served: true
+      storage: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              properties:
+                temporaryRole:
+                  type: string
+                createdBy:
+                  type: string
+      additionalPrinterColumns:
+        - name: TemporaryRole
+          type: string
+          description: The name of the temporary role
+          jsonPath: .spec.temporaryRole
+        - jsonPath: .spec.createdBy
+          name: createdBy
+          type: string
+  scope: Namespaced
+  names:
+    plural: temporaryrolerequests
+    singular: temporaryrolerequest
+    kind: TemporaryRoleRequest
+    shortNames:
+    - trr

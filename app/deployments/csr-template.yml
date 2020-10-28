@@ -1,0 +1,12 @@
+apiVersion: certificates.k8s.io/v1beta1
+kind: CertificateSigningRequest
+metadata:
+  name: k8su-mutatingwebhook.k8su.csr
+spec:
+  groups:
+  - system:authenticated
+  request: CSR_BASE64
+  usages:
+  - digital signature
+  - key encipherment
+  - server auth

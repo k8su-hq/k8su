@@ -6,11 +6,19 @@ updates:
     schedule:
       interval: "daily"
   - package-ecosystem: "npm"
+    directory: "/app/mutatingwebhook"
+    schedule:
+      interval: "daily"
+  - package-ecosystem: "npm"
     directory: "/app/unit"
     schedule:
       interval: "daily"
   - package-ecosystem: "docker"
     directory: "/app/controller"
+    schedule:
+      interval: "weekly"
+  - package-ecosystem: "docker"
+    directory: "/app/mutatingwebhook"
     schedule:
       interval: "weekly"
 
