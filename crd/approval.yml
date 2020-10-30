@@ -19,13 +19,18 @@ spec:
                   type: string
                 approvedBy:
                   type: string
+                approvedSource:
+                  type: string
       additionalPrinterColumns:
         - name: Request
           type: string
           description: The name of the temporary role
           jsonPath: .spec.temporaryRoleRequest
         - jsonPath: .spec.approvedBy
-          name: approvedBy
+          name: by
+          type: string
+        - jsonPath: .spec.approvedSource
+          name: source
           type: string
   scope: Namespaced
   names:

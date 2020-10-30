@@ -1,56 +1,50 @@
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: k8su-controller-svc-account
+  name: k8su-notifier-svc-account
   namespace: k8su
   labels:
-    app: k8su-controller
+    app: k8su-notifier
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: k8su-controller-cluster-role
+  name: k8su-notifier-cluster-role
   labels:
-    app: k8su-controller
+    app: k8su-notifier
 rules:
-- apiGroups: ["rbac.authorization.k8s.io"]
-  resources: ["rolebindings"]
-  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
-- apiGroups: ["rbac.authorization.k8s.io"]
-  resources: ["roles"]
-  verbs: ["escalate"]
-- apiGroups: [""]
-  resources: ["namespaces"]
+- apiGroups: ["roles.k8su.io"]
+  resources: ["temporaryroles", "temporaryrolerequests"]
   verbs: ["get", "list", "watch"]
 - apiGroups: ["roles.k8su.io"]
-  resources: ["temporaryroles", "temporaryrolerequests", "temporaryroleapprovals"]
-  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  resources: ["temporaryroleapprovals"]
+  verbs: ["get", "list", "watch", "create"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: k8su-controller-binding
+  name: k8su-notifier-binding
 subjects:
 - kind: ServiceAccount
-  name: k8su-controller-svc-account
+  name: k8su-notifier-svc-account
   namespace: k8su
 roleRef:
   kind: ClusterRole
-  name: k8su-controller-cluster-role
+  name: k8su-notifier-cluster-role
   apiGroup: rbac.authorization.k8s.io
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   labels:
-    app: k8su-controller
-  name: k8su-controller
+    app: k8su-notifier
+  name: k8su-notifier
   namespace: k8su
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: k8su-controller
+      app: k8su-notifier
   strategy:
     rollingUpdate:
       maxSurge: 1
@@ -59,12 +53,17 @@ spec:
   template:
     metadata:
       labels:
-        app: k8su-controller
+        app: k8su-notifier
     spec:
-      serviceAccountName: k8su-controller-svc-account
+      serviceAccountName: k8su-notifier-svc-account
       containers:
-      - image: 192.168.1.10:5000/k8su/k8su-controller:latest
+      - image: 192.168.1.10:5000/k8su/k8su-notifier:latest
         imagePullPolicy: Always
+        env:
+          - name: SLACK_TOKEN
+            value: "<INSERT_TOKEN_HERE>"
+          - name: SLACK_CHANNEL
+            value: "#k8su"
         livenessProbe:
           failureThreshold: 2
           exec:
@@ -73,7 +72,7 @@ spec:
           initialDelaySeconds: 10
           periodSeconds: 60
           timeoutSeconds: 5
-        name: k8su-controller
+        name: k8su-notifier
         readinessProbe:
           failureThreshold: 2
           exec:

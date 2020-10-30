@@ -14,11 +14,6 @@ module.exports = class ResourceWatcher extends EventEmitter {
         this.plural = plural;
 
         this.customApi = this.kubeConfig.makeApiClient(k8s.CustomObjectsApi);
-        this.coreApi = this.kubeConfig.makeApiClient(k8s.CoreV1Api);
-    }
-
-    deleteResource(namespace, name) {
-        return this.customApi.deleteNamespacedCustomObject(this.group, this.version, namespace, this.plural, name)
     }
 
     get(namespace, name) {
@@ -34,11 +29,19 @@ module.exports = class ResourceWatcher extends EventEmitter {
         return null;
     }
 
-    onDelete(cb) { this.on(EventType.DELETED, cb); }
-    onInit(cb) { this.on(EventType.INIT, cb); }
     onCreate(cb) { this.on(EventType.CREATED, cb); }
     onUpdate(cb) { this.on(EventType.UPDATED, cb); }
 
+    fetch(namespace, name) {
+        return this.customApi.getNamespacedCustomObject(
+            this.group,
+            this.version,
+            namespace,
+            this.plural,
+            name
+        );
+    }
+    
     start() {
         const watch = new k8s.Watch(this.kubeConfig);
         watch.watch("/apis/"+this.group+"/"+this.version+"/"+this.plural, {}, (phase, obj) =>{
@@ -50,7 +53,7 @@ module.exports = class ResourceWatcher extends EventEmitter {
                     this.plural,
                     obj.metadata.name
                 ).then(res => {
-                    this.resources[obj.metadata.selfLink] = res.body;
+                    this.resources[obj.metadata.selfLink] = true;
 
                     if ( this.resources[obj.metadata.selfLink] != undefined ) {
                         this.emit(EventType.UPDATED, res.body);
@@ -72,33 +75,5 @@ module.exports = class ResourceWatcher extends EventEmitter {
             this.logger.error("error watching")
             this.logger.error(err);
         });
-
-        return this.sync();
     }
-
-    async sync() {
-        const namespaces = await this.coreApi.listNamespace();
-
-        for (let i = 0; i < namespaces.body.items.length; i++) {
-            const namespace = namespaces.body.items[i];
-
-            try {
-                const customObjects = await this.customApi.listNamespacedCustomObject(
-                    this.group,
-                    this.version,
-                    namespace.metadata.name,
-                    this.plural
-                );
-
-                for (let j = 0; j < customObjects.length; j++) {
-                    const customObject = customObjects[j];
-                    this.resources[customObject.metadata.selfLink] = customObject;
-                    this.emit(EventType.INIT, customObject);
-                }
-            } catch(err) {
-                this.logError(err);
-            }
-        }
-    }
-    
 }

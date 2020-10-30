@@ -7,6 +7,9 @@ module.exports = class TemporaryRoleBinding {
         this.request = request;
         this.deleteAfter = undefined;
         this.logger = logger;
+
+        this.needsApproval = false;
+        this.approvalListener = false;
         
         this.bindingApi = kubeConfig.makeApiClient(k8s.RbacAuthorizationV1Api);
         this.unregister;
@@ -24,40 +27,79 @@ module.exports = class TemporaryRoleBinding {
         } else {
             this.role = fetchedRole;
         }
-
-        // TODO: implement approval logic
-
+        
         const namespace = this.request.metadata.namespace;
         const millisToExpiration = this.role.spec.leaseTimeSeconds*1000;
-        const createdAt = new Date(this.request.metadata.creationTimestamp);
 
-        const removeAt = createdAt.getTime() + millisToExpiration;
+        // these need to be changed when it needs approval (approval moment counts)
         const now = new Date().getTime();
 
-        if ( removeAt > now ) {
-            this.logger.info("new request to be created: " + this.request.metadata.selfLink);
-            
-            const body = this.createRoleFor(namespace);
+        if ( this.role.spec.needsApproval && this.role.spec.needsApproval === true ) {
+            this.needsApproval = true;
 
-            this.bindingApi.createNamespacedRoleBinding(namespace, body)
-                        .then(res => this.logger.info("created role binding: " + body.metadata.selfLink))
-                        .catch(err => {
-                            this.logger.error("could not create role binding for " + this.request.metadata.selfLink);
-                            this.logger.error(err);
-                        });
+            this.approvalListener = item => {
+                if ( item.spec.temporaryRoleRequest === this.request.metadata.name
+                    && item.metadata.namespace === namespace ) {
 
-            // add timeout
-            clearTimeout(this.deleteAfter);
-            this.deleteAfter = setTimeout(() => {
-                this.logger.info("time reached to delete " + this.request.metadata.selfLink);
-                this.deleteBinding(true)
-            }, removeAt - now);
+                    if ( item.spec.approvedBy == this.request.spec.createdBy ) {
+                        this.logger.info("temporary role can't be approved by the same user");
+                    } else {
+                        // Got approval!
+                        const approvedAt = new Date(item.metadata.creationTimestamp);
+                        const removeAt = approvedAt.getTime() + millisToExpiration;
+
+                        if ( removeAt > now ) {
+                            this.logger.info("new approval triggered a role binding creation: " + this.request.metadata.selfLink);
+
+                            this.createRole(namespace, removeAt - now);
+                        } else {
+                            this.logger.info("old approval pending: " + item.metadata.selfLink);
+                            this.deleteBinding(true);
+                        }
+                    }
+                }
+            };
+
+            this.approvalWatcher.on(EventType.INIT, this.approvalListener);
+            this.approvalWatcher.on(EventType.CREATED, this.approvalListener);
+            this.approvalWatcher.on(EventType.UPDATED, this.approvalListener);
 
             this.registerOnEvents();
         } else {
-            this.logger.info("old request pending: " + this.request.metadata.selfLink);
-            this.deleteBinding(true);
+            const createdAt = new Date(this.request.metadata.creationTimestamp);
+            const removeAt = createdAt.getTime() + millisToExpiration;
+
+            if ( removeAt > now ) {
+                this.logger.info("new request triggered a role binding creation: " + this.request.metadata.selfLink);
+
+                this.createRole(namespace, removeAt - now);
+                this.registerOnEvents();
+            } else {
+                this.logger.info("old request pending: " + this.request.metadata.selfLink);
+                this.deleteBinding(true);
+            }
         }
+    }
+
+    createRole(namespace, millis) {
+        const body = this.createRoleFor(namespace);
+
+        this.bindingApi.createNamespacedRoleBinding(namespace, body)
+                    .then(res => this.logger.info("created role binding: " + body.metadata.selfLink))
+                    .catch(err => {
+                        this.logger.error("could not create role binding for " + this.request.metadata.selfLink);
+                        this.logger.error(err);
+                    });
+
+        this.setupDeletionIn(millis);
+    }
+
+    setupDeletionIn(millis) {
+        clearTimeout(this.deleteAfter);
+        this.deleteAfter = setTimeout(() => {
+            this.logger.info("time reached to delete " + this.request.metadata.selfLink);
+            this.deleteBinding(true)
+        }, millis);
     }
     
     registerOnEvents() {
@@ -81,6 +123,12 @@ module.exports = class TemporaryRoleBinding {
         this.unregister = () => {
             this.roleWatcher.removeListener(this.role.metadata.selfLink, roleHandler);
             this.requestWatcher.removeListener(this.request.metadata.selfLink, requestHandler);
+
+            if ( this.approvalListener ) {
+                this.approvalWatcher.removeListener(EventType.CREATED, this.approvalListener);
+                this.approvalWatcher.removeListener(EventType.INIT, this.approvalListener);
+                this.approvalWatcher.removeListener(EventType.UPDATED, this.approvalListener);
+            }
         };
     }
 
@@ -91,19 +139,6 @@ module.exports = class TemporaryRoleBinding {
             this.unregister();
         }
 
-        // binding is owned by request, should be auto-deleted
-        /*
-        if ( deleteBinding ) {
-            const bindingName = this.getBindingName();
-            this.bindingApi.deleteNamespacedRoleBinding(this.getBindingName(), this.request.metadata.namespace)
-                .then(res => this.logger.info("deleted binding: " + bindingName))
-                .catch(err => {
-                    this.logger.error("could not delete binding: " + bindingName);
-                    this.logger.error(err);
-                });
-        }
-        */
-        
         // request
         if ( deleteRequest ) {
             this.requestWatcher.deleteResource(this.request.metadata.namespace, this.request.metadata.name)

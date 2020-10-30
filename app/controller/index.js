@@ -1,5 +1,3 @@
-
-
 const winston = require('winston');
 
 const k8s = require('@kubernetes/client-node');
@@ -35,7 +33,7 @@ const roleWatcher = new TemporaryRoleWatcher(kc, logger);
 const requestWatcher = new TemporaryRoleRequestWatcher(kc, logger);
 const approvalWatcher = new TemporaryRoleApprovalWatcher(kc, logger);
 
-const logEvent = (evt, item) => logger.debug("event " + evt + " for " + item.metadata.name);
+const logEvent = (evt, item) => logger.info("event " + evt + " for " + item.metadata.name);
 
 const watchers = [roleWatcher, requestWatcher, approvalWatcher];
 

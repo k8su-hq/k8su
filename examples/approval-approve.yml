@@ -1,0 +1,7 @@
+apiVersion: roles.k8su.io/v1alpha1
+kind: TemporaryRoleApproval
+metadata:
+  name: approve-need-some-operation-time
+  namespace: k8su
+spec:
+  temporaryRoleRequest: need-some-operation-time
