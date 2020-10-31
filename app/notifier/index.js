@@ -60,7 +60,7 @@ const handle = item => {
     roleWatcher.fetch(item.metadata.namespace, item.spec.temporaryRole).then(res => {
         const role = res.body;
 
-        if ( role.needsApproval && role.needsApproval === true ) {
+        if ( role.spec.needsApproval && role.spec.needsApproval === true ) {
             slackApi.chat.postMessage({
                 channel: channel,
 
@@ -127,12 +127,15 @@ const handle = item => {
                 channel: channel,
                 attachments: [
                     {
-                        text: ':white_check_mark: Request role *' + role.metadata.name + "* by *" + item.spec.createdBy + "* for " + role.spec.leaseTimeSeconds + "s",
+                        text: ':white_check_mark: Role *' + role.metadata.name + "* requested by *" + item.spec.createdBy + "* for " + role.spec.leaseTimeSeconds + "s and immediately assigned",
                         callback_id: item.metadata.selfLink,
                         color: "#26A001"
                     }
                 ]
-            }).then(res => this.logger.error(res)).catch(err => this.logger.error(err));
+            }).then(res => this.logger.error(res))
+            .catch(err => {
+                this.logger.error(err)
+            });
         }
     });
 };
