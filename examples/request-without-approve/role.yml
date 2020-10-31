@@ -1,0 +1,14 @@
+apiVersion: roles.k8su.io/v1alpha1
+kind: TemporaryRole
+metadata:
+  name: request-without-approve
+  namespace: k8su
+  labels:
+    k8su: "yes"
+spec:
+  role: "k8su-pod-reader"
+  # the time the rolebinding would be given
+  # to the mentioned serviceaccount in the subject
+  leaseTimeSeconds: 15
+  subject:
+    serviceAccount: "k8su-svc-account"

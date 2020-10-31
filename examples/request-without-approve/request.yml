@@ -1,7 +1,7 @@
 apiVersion: roles.k8su.io/v1alpha1
 kind: TemporaryRoleRequest
 metadata:
-  name: lease-a-bit
+  name: request-without-approve-request
   namespace: k8su
 spec:
-  temporaryRole: temp-role-assignment
+  temporaryRole: request-without-approve

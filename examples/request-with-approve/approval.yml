@@ -1,0 +1,7 @@
+apiVersion: roles.k8su.io/v1alpha1
+kind: TemporaryRoleApproval
+metadata:
+  name: request-with-approve-role-request-approval
+  namespace: k8su
+spec:
+  temporaryRoleRequest: request-with-approve-role-request

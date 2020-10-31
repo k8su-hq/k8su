@@ -1,0 +1,13 @@
+apiVersion: roles.k8su.io/v1alpha1
+kind: TemporaryRole
+metadata:
+  name: request-with-approve-role
+  namespace: k8su
+  labels:
+    k8su: "yes"
+spec:
+  role: "k8su-pod-reader"
+  leaseTimeSeconds: 5
+  needsApproval: true
+  subject:
+    serviceAccount: "k8su-svc-account"
