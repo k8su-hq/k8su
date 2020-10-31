@@ -7,18 +7,12 @@ metadata:
     app: k8su-controller
 ---
 apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
+kind: Role
 metadata:
   name: k8su-controller-cluster-role
   labels:
     app: k8su-controller
 rules:
-- apiGroups: ["rbac.authorization.k8s.io"]
-  resources: ["rolebindings"]
-  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
-- apiGroups: ["rbac.authorization.k8s.io"]
-  resources: ["roles"]
-  verbs: ["escalate"]
 - apiGroups: [""]
   resources: ["namespaces"]
   verbs: ["get", "list", "watch"]
@@ -37,6 +31,37 @@ subjects:
 roleRef:
   kind: ClusterRole
   name: k8su-controller-cluster-role
+  apiGroup: rbac.authorization.k8s.io
+--- 
+# sample description for roles to assign temporarily
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: k8su-controller-regular-role
+  namespace: k8su
+  labels:
+    app: k8su-controller
+rules:
+- apiGroups: ["rbac.authorization.k8s.io"]
+  resources: ["rolebindings"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete", "bind"]
+- apiGroups: ["rbac.authorization.k8s.io"]
+  resources: ["roles"]
+  verbs: ["bind"]
+  resourceNames: ["k8su-pod-reader"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: k8su-controller-binding
+  namespace: k8su
+subjects:
+- kind: ServiceAccount
+  name: k8su-controller-svc-account
+  namespace: k8su
+roleRef:
+  kind: Role
+  name: k8su-controller-regular-role
   apiGroup: rbac.authorization.k8s.io
 ---
 apiVersion: apps/v1
