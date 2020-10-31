@@ -66,7 +66,7 @@ roleWatcher.start().then(() => {
 
 const addRoleBinding = item => {
     try {
-        logger.info("created role binding for request " + item.metadata.selfLink);
+        logger.info("created temporary role request controller for " + item.metadata.selfLink);
         const binding = new TemporaryRoleBinding(kc, logger, item);
         binding.create(roleWatcher, requestWatcher, approvalWatcher);
     } catch(err) {
