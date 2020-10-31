@@ -4,7 +4,7 @@ const bodyParser = require('body-parser');
 const http = require('http');
 const app = express();
 const { WebClient } = require('@slack/web-api');
-const request = require('request');
+const fetch = require('node-fetch');
 
 const k8s = require('@kubernetes/client-node');
 const TemporaryRoleWatcher = require('./lib/temporaryRoleWatcher');
@@ -166,25 +166,33 @@ app.post('/webhook', urlencodedParser, (req, res) => {
                     .then(res => {
                         logger.info("created approval for " + action.block_id + " by: " + source);
 
-                        request({
-                            uri: json.response_url,
+                        const body = {
+                            text: ":white_check_mark: Approved by <@"+json.user.id+">: " + json.message.blocks[0].text.text
+                        };
+
+                        fetch(json.response_url, {
                             method: 'POST',
-                            json: {
-                                text: ":white_check_mark: Approved by <@"+json.user.id+">: " + json.message.blocks[0].text.text
-                            }
+                            body:    JSON.stringify(body),
+                            headers: { 'Content-Type': 'application/json' },
                         })
+                        .then(res => res.json())
+                        .then(json => console.log(json));
                     }).catch(err => {
                         logger.error("could not create approval for " + action.block_id + " by: " + source);
                         logger.error(err);
                     })
             } else {
-                request({
-                    uri: json.response_url,
+                const body = {
+                    text: ":no_entry: Denied by <@"+json.user.id+">: " + json.message.blocks[0].text.text
+                };
+
+                fetch(json.response_url, {
                     method: 'POST',
-                    json: {
-                        text: ":no_entry: Denied by <@"+json.user.id+">: " + json.message.blocks[0].text.text
-                    }
+                    body:    JSON.stringify(body),
+                    headers: { 'Content-Type': 'application/json' },
                 })
+                .then(res => res.json())
+                .then(json => console.log(json));
             }
         });
     }
