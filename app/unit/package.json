@@ -6,8 +6,8 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "author": "",
-  "license": "ISC",
+  "author": "Gijs van Dulmen",
+  "license": "Mozilla Public License 2.0",
   "devDependencies": {
     "mocha": "^8.2.0"
   },
