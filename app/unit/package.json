@@ -9,7 +9,7 @@
   "author": "Gijs van Dulmen",
   "license": "Mozilla Public License 2.0",
   "devDependencies": {
-    "mocha": "^8.2.0"
+    "mocha": "^9.0.0"
   },
   "dependencies": {
     "@kubernetes/client-node": "^0.12.3",
