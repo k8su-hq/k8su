@@ -9,7 +9,7 @@
   "author": "Gijs van Dulmen",
   "license": "Mozilla Public License 2.0",
   "dependencies": {
-    "@kubernetes/client-node": "^0.12.3",
+    "@kubernetes/client-node": "^0.18.0",
     "winston": "^3.3.3"
   }
 }
